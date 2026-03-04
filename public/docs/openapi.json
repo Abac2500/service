@@ -1,0 +1,310 @@
+{
+	"openapi": "3.0.3",
+	"info": {
+		"title": "API заказов",
+		"version": "1.0.0",
+		"description": "API сервиса управления заказами автозапчастей"
+	},
+	"servers": [
+		{
+			"url": "/",
+			"description": "Текущий хост"
+		}
+	],
+	"paths": {
+		"/api/v1/products": {
+			"get": {
+				"summary": "Получить список товаров",
+				"parameters": [
+					{
+						"name": "category",
+						"in": "query",
+						"description": "Фильтр по категории товара",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"name": "search",
+						"in": "query",
+						"description": "Поиск по наименованию и артикулу",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"name": "per_page",
+						"in": "query",
+						"description": "Количество записей на странице",
+						"schema": {
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 100
+						}
+					},
+					{
+						"name": "page",
+						"in": "query",
+						"description": "Номер страницы",
+						"schema": {
+							"type": "integer",
+							"minimum": 1
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Список товаров"
+					}
+				}
+			}
+		},
+		"/api/v1/orders": {
+			"get": {
+				"summary": "Получить список заказов",
+				"parameters": [
+					{
+						"name": "status",
+						"in": "query",
+						"description": "Фильтр по статусу заказа",
+						"schema": {
+							"type": "string",
+							"enum": [
+								"new",
+								"confirmed",
+								"processing",
+								"shipped",
+								"completed",
+								"cancelled"
+							]
+						}
+					},
+					{
+						"name": "customer_id",
+						"in": "query",
+						"description": "Фильтр по клиенту",
+						"schema": {
+							"type": "integer"
+						}
+					},
+					{
+						"name": "date_from",
+						"in": "query",
+						"description": "Дата начала периода (YYYY-MM-DD)",
+						"schema": {
+							"type": "string",
+							"format": "date"
+						}
+					},
+					{
+						"name": "date_to",
+						"in": "query",
+						"description": "Дата окончания периода (YYYY-MM-DD)",
+						"schema": {
+							"type": "string",
+							"format": "date"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Список заказов"
+					}
+				}
+			},
+			"post": {
+				"summary": "Создать заказ",
+				"description": "Создание заказа с проверкой остатков и списанием stock в транзакции. Используйте существующие ID клиента и товаров.",
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/CreateOrderRequest"
+							},
+							"examples": {
+								"basic_order": {
+									"summary": "Базовый заказ",
+									"value": {
+										"customer_id": 1,
+										"items": [
+											{
+												"product_id": 1,
+												"quantity": 2
+											},
+											{
+												"product_id": 2,
+												"quantity": 1
+											}
+										]
+									}
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"201": {
+						"description": "Заказ успешно создан"
+					},
+					"422": {
+						"description": "Ошибка валидации"
+					},
+					"429": {
+						"description": "Превышен лимит запросов"
+					}
+				}
+			}
+		},
+		"/api/v1/orders/{id}": {
+			"get": {
+				"summary": "Получить детали заказа",
+				"parameters": [
+					{
+						"name": "id",
+						"in": "path",
+						"required": true,
+						"description": "Идентификатор заказа",
+						"schema": {
+							"type": "integer",
+							"example": 1
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Детали заказа"
+					},
+					"404": {
+						"description": "Заказ не найден"
+					}
+				}
+			}
+		},
+		"/api/v1/orders/{id}/status": {
+			"patch": {
+				"summary": "Изменить статус заказа",
+				"parameters": [
+					{
+						"name": "id",
+						"in": "path",
+						"required": true,
+						"description": "Идентификатор заказа",
+						"schema": {
+							"type": "integer",
+							"example": 1
+						}
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"required": [
+									"status"
+								],
+								"additionalProperties": false,
+								"properties": {
+									"status": {
+										"type": "string",
+										"description": "Новый статус заказа",
+										"enum": [
+											"new",
+											"confirmed",
+											"processing",
+											"shipped",
+											"completed",
+											"cancelled"
+										],
+										"example": "confirmed"
+									}
+								}
+							},
+							"examples": {
+								"confirm_order": {
+									"summary": "Подтвердить заказ",
+									"value": {
+										"status": "confirmed"
+									}
+								},
+								"cancel_order": {
+									"summary": "Отменить заказ",
+									"value": {
+										"status": "cancelled"
+									}
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Статус заказа обновлён"
+					},
+					"422": {
+						"description": "Недопустимый переход статуса"
+					}
+				}
+			}
+		}
+	},
+	"components": {
+		"schemas": {
+			"CreateOrderItem": {
+				"type": "object",
+				"required": [
+					"product_id",
+					"quantity"
+				],
+				"properties": {
+					"product_id": {
+						"type": "integer"
+					},
+					"quantity": {
+						"type": "integer",
+						"minimum": 1
+					}
+				}
+			},
+			"CreateOrderRequest": {
+				"type": "object",
+				"required": [
+					"customer_id",
+					"items"
+				],
+				"properties": {
+					"customer_id": {
+						"type": "integer"
+					},
+					"items": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/CreateOrderItem"
+						}
+					}
+				}
+			},
+			"UpdateOrderStatusRequest": {
+				"type": "object",
+				"required": [
+					"status"
+				],
+				"properties": {
+					"status": {
+						"type": "string",
+						"enum": [
+							"new",
+							"confirmed",
+							"processing",
+							"shipped",
+							"completed",
+							"cancelled"
+						]
+					}
+				}
+			}
+		}
+	}
+}
